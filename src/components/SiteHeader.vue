@@ -1,0 +1,320 @@
+<script setup lang="ts">
+import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { Menu, X } from 'lucide-vue-next'
+import { NAV_DESTINATIONS, SITE_BRAND, type NavDestination } from '../config/siteContent'
+import { navigateToContact } from '../composables/useContactNavigation'
+
+const isMobileMenuOpen = ref(false)
+const headerRef = ref<HTMLElement | null>(null)
+const activeHref = ref<string>(NAV_DESTINATIONS[0]?.href ?? '#hero')
+let sectionObserver: IntersectionObserver | null = null
+
+function toggleMobileMenu() {
+  isMobileMenuOpen.value = !isMobileMenuOpen.value
+}
+
+function closeMobileMenu() {
+  isMobileMenuOpen.value = false
+}
+
+function handleNavLinkClick(item: NavDestination, event: MouseEvent) {
+  activeHref.value = item.href
+  closeMobileMenu()
+  if (item.href === '#lien-he') {
+    navigateToContact(undefined, event)
+  }
+}
+
+function onDocumentPointerDown(event: PointerEvent) {
+  if (!isMobileMenuOpen.value || !headerRef.value) return
+  if (!headerRef.value.contains(event.target as Node)) {
+    closeMobileMenu()
+  }
+}
+
+function onDocumentKeyDown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && isMobileMenuOpen.value) {
+    closeMobileMenu()
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('pointerdown', onDocumentPointerDown)
+  document.addEventListener('keydown', onDocumentKeyDown)
+
+  sectionObserver = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) {
+          activeHref.value = `#${entry.target.id}`
+        }
+      }
+    },
+    { rootMargin: '-28% 0px -55% 0px', threshold: 0 }
+  )
+
+  for (const item of NAV_DESTINATIONS) {
+    if (item.href.startsWith('#')) {
+      const el = document.getElementById(item.href.slice(1))
+      if (el) sectionObserver.observe(el)
+    }
+  }
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('pointerdown', onDocumentPointerDown)
+  document.removeEventListener('keydown', onDocumentKeyDown)
+  sectionObserver?.disconnect()
+})
+</script>
+
+<template>
+  <header ref="headerRef" class="site-header">
+    <div class="site-header__inner container">
+      <a class="site-header__brand" :href="SITE_BRAND.homeHref" @click="closeMobileMenu">
+        {{ SITE_BRAND.fullName }}
+      </a>
+
+      <!-- Desktop inline navigation (>= 62rem) -->
+      <nav class="site-header__nav-desktop" aria-label="Điều hướng chính">
+        <ul class="site-header__list">
+          <li v-for="item in NAV_DESTINATIONS" :key="item.id">
+            <a
+              class="site-header__link"
+              :class="{ 'is-active': activeHref === item.href }"
+              :href="item.href"
+              @click="handleNavLinkClick(item, $event)"
+            >
+              <span
+                v-if="activeHref === item.href"
+                class="site-header__dot"
+                aria-hidden="true"
+              ></span>
+              <span>{{ item.label }}</span>
+            </a>
+          </li>
+        </ul>
+      </nav>
+
+      <!-- Mobile disclosure toggle (< 48rem) -->
+      <button
+        type="button"
+        class="site-header__menu-btn"
+        :aria-expanded="isMobileMenuOpen ? 'true' : 'false'"
+        aria-controls="mobile-nav-panel"
+        @click="toggleMobileMenu"
+      >
+        <span>Menu</span>
+        <X v-if="isMobileMenuOpen" :size="16" :stroke-width="2" aria-hidden="true" />
+        <Menu v-else :size="16" :stroke-width="2" aria-hidden="true" />
+      </button>
+    </div>
+
+    <!-- Mobile navigation panel -->
+    <nav
+      v-if="isMobileMenuOpen"
+      id="mobile-nav-panel"
+      class="site-header__nav-mobile"
+      aria-label="Điều hướng di động"
+    >
+      <ul class="site-header__mobile-list container">
+        <li v-for="item in NAV_DESTINATIONS" :key="item.id">
+          <a
+            class="site-header__mobile-link"
+            :href="item.href"
+            @click="handleNavLinkClick(item, $event)"
+          >
+            <span
+              class="site-header__dot"
+              :class="{ 'is-muted': activeHref !== item.href }"
+              aria-hidden="true"
+            ></span>
+            <span>{{ item.label }}</span>
+          </a>
+        </li>
+      </ul>
+    </nav>
+  </header>
+</template>
+
+<style scoped>
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky-nav);
+  border-bottom: var(--rule-hairline);
+  background: var(--color-header-bg);
+  backdrop-filter: blur(10px);
+}
+
+.site-header__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  min-height: 4.5rem;
+  padding-block: var(--space-sm);
+}
+
+.site-header__brand {
+  font-family: var(--font-display);
+  font-size: clamp(1.0625rem, 0.8vw + 0.875rem, 1.375rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--color-ink);
+  text-decoration: none;
+  white-space: nowrap;
+  padding-block: var(--space-xs);
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  transition: color var(--dur-micro) var(--ease-out);
+}
+
+.site-header__brand:hover {
+  color: var(--color-ink-2);
+}
+
+.site-header__nav-desktop {
+  display: none;
+}
+
+.site-header__list {
+  display: flex;
+  align-items: center;
+  gap: clamp(var(--space-sm), 1.45vw, var(--space-lg));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.site-header__link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-height: 44px;
+  padding-inline: var(--space-xs);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-ink-2);
+  text-decoration: none;
+  white-space: nowrap;
+  position: relative;
+  transition: color var(--dur-micro) var(--ease-out);
+}
+
+.site-header__link:hover,
+.site-header__link.is-active {
+  color: var(--color-ink);
+}
+
+.site-header__link::after {
+  content: '';
+  position: absolute;
+  inset-inline: var(--space-xs);
+  bottom: 0.5rem;
+  height: 1.5px;
+  background: var(--color-accent);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform var(--dur-short) var(--ease-out);
+}
+
+.site-header__link:hover::after,
+.site-header__link.is-active::after {
+  transform: scaleX(1);
+}
+
+.site-header__dot {
+  width: 0.4375rem;
+  height: 0.4375rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.site-header__dot.is-muted {
+  background: var(--color-rule);
+}
+
+.site-header__menu-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-height: 44px;
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius-pill);
+  border: var(--rule-hairline);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-micro) var(--ease-out),
+    border-color var(--dur-micro) var(--ease-out);
+}
+
+.site-header__menu-btn:hover {
+  background: var(--color-paper-2);
+  border-color: var(--color-ink-2);
+}
+
+.site-header__nav-mobile {
+  position: absolute;
+  inset-inline: 0;
+  top: 100%;
+  background: var(--color-paper);
+  border-bottom: var(--rule-hairline);
+  box-shadow: var(--shadow-whisper);
+  animation: nav-panel-open var(--dur-short) var(--ease-out) forwards;
+}
+
+.site-header__mobile-list {
+  list-style: none;
+  margin: 0;
+  padding-block: var(--space-xs);
+  display: flex;
+  flex-direction: column;
+}
+
+.site-header__mobile-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: 44px;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-ink);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+@keyframes nav-panel-open {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (min-width: 62rem) {
+  .site-header__nav-desktop {
+    display: flex;
+    align-items: center;
+  }
+
+  .site-header__menu-btn,
+  .site-header__nav-mobile {
+    display: none;
+  }
+}
+</style>
