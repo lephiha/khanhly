@@ -24,6 +24,15 @@
   --color-stage-scrim-strong: oklch(15% 0.012 350 / 0.88);
   --color-stage-scrim-mid: oklch(15% 0.012 350 / 0.46);
   --color-stage-ink: oklch(98% 0.006 15);
+  --color-hero-overlay-ink: oklch(99% 0.004 15);
+  --color-hero-overlay-role: oklch(94.5% 0.006 15);
+  --scrim-hero-mobile-bottom: linear-gradient(
+    to top,
+    oklch(13% 0.012 350 / 0.84) 0%,
+    oklch(14% 0.012 350 / 0.62) 36%,
+    oklch(15% 0.012 350 / 0.22) 68%,
+    transparent 100%
+  );
   --color-stage-meta: oklch(88% 0.01 15);
   --color-stage-badge-bg: oklch(98% 0.006 15 / 0.9);
   --color-modal-backdrop: oklch(16% 0.012 350 / 0.62);
@@ -39,7 +48,9 @@
   --color-rule: oklch(87% 0.014 352);
   --color-rule-2: oklch(92% 0.010 352);
 
-  /* Brand accent — light neon rose (#FF79B6) */
+  /* Brand accent — light neon rose (#FF79B6) & header wordmark split palette */
+  --color-brand-surname: #241821;
+  --color-brand-given: #a52b43;
   --color-accent: #ff79b6;
   --color-accent-hover: oklch(69.5% 0.184 348);
   --color-accent-active: oklch(64.5% 0.188 348);

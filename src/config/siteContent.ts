@@ -16,6 +16,7 @@ import eventPlaceholder01 from '../assets/images/event-placeholder-01.jpg'
 import eventPlaceholder02 from '../assets/images/event-placeholder-02.jpg'
 import eventPlaceholder03 from '../assets/images/event-placeholder-03.jpg'
 import eventPlaceholder04 from '../assets/images/event-placeholder-04.jpg'
+import fitxLogo from '../assets/images/fitx-logo.png'
 import { buildContactHref } from '../composables/useContactNavigation'
 import type { ContactTopicId } from './contactForm'
 
@@ -23,18 +24,6 @@ export interface NavDestination {
   id: string
   label: string
   href: string
-}
-
-export interface HeroAction {
-  id: 'inspire-tips' | 'mentoring'
-  label: string
-  variant: 'primary' | 'secondary'
-  /** Khi có link thật, gán URL hoặc `#section` và đổi `status` thành `'ready'` */
-  href: string | null
-  status: 'pending' | 'ready'
-  pendingNote: string
-  /** Chủ đề tự động chọn sẵn khi điều hướng tới form Liên hệ (#lien-he) */
-  contactTopic?: ContactTopicId
 }
 
 export interface VideoSeriesItem {
@@ -145,7 +134,7 @@ export interface FeaturedEventItem {
   detailUrl: string | null
 }
 
-export type SocialPlatform = 'facebook' | 'tiktok' | 'linkedin' | 'instagram' | 'youtube'
+export type SocialPlatform = 'facebook' | 'tiktok' | 'fitx' | 'instagram' | 'youtube'
 
 export interface MediaChannelItem {
   id: string
@@ -153,7 +142,7 @@ export interface MediaChannelItem {
   /** Tên kênh hiển thị dưới icon */
   name: string
   /**
-   * URL trang chính thức của Khánh Ly trên từng nền tảng.
+   * URL trang chính thức của kênh / thương hiệu.
    * Khi `null`, kênh hiển thị ở chế độ minh họa tĩnh trong preview.
    */
   url: string | null
@@ -162,10 +151,16 @@ export interface MediaChannelItem {
    * Chỉ hiển thị khi được cung cấp số liệu thật; để `null` sẽ tự ẩn.
    */
   followers: string | null
+  /** Logo ảnh PNG nền trong suốt (tùy chọn, dùng cho thương hiệu riêng như FitX) */
+  logoSrc?: string
+  logoWidth?: number
+  logoHeight?: number
 }
 
 export const SITE_BRAND = {
   fullName: 'Nguyễn Khánh Ly',
+  surname: 'Nguyễn',
+  givenName: 'Khánh Ly',
   homeHref: '#hero',
 } as const
 
@@ -201,27 +196,8 @@ export const NAV_DESTINATIONS: NavDestination[] = [
 ]
 
 export const HERO_CONTENT = {
-  nameLines: ['Nguyễn', 'Khánh Ly'] as const,
-  description: 'Chia sẻ về sức khỏe và đồng hành cùng người khởi nghiệp.',
-  actions: [
-    {
-      id: 'inspire-tips',
-      label: 'Xem Inspire Tips',
-      variant: 'primary',
-      href: '#video-series',
-      status: 'ready',
-      pendingNote: '',
-    },
-    {
-      id: 'mentoring',
-      label: 'Trao đổi về cố vấn',
-      variant: 'secondary',
-      href: buildContactHref('co-van-khoi-nghiep'),
-      status: 'ready',
-      pendingNote: '',
-      contactTopic: 'co-van-khoi-nghiep',
-    },
-  ] satisfies HeroAction[],
+  title: 'NGUYỄN KHÁNH LY',
+  roleLine: 'Doanh nhân – ThS. Dược sĩ – Cố vấn – HLV',
 } as const
 
 export const VIDEO_SERIES_SECTION = {
@@ -547,8 +523,8 @@ export const MEDIA_NETWORK_SECTION = {
   previewNote: 'Bản minh họa tĩnh · mở trang chính thức khi cập nhật liên kết',
   followersUnitLabel: 'Người theo dõi',
   ctaLabel: 'Liên hệ hợp tác',
-  ctaHref: buildContactHref('hop-tac-truyen-thong') as string | null,
-  contactTopic: 'hop-tac-truyen-thong' as ContactTopicId,
+  ctaHref: buildContactHref() as string | null,
+  contactTopic: undefined as ContactTopicId | undefined,
   pendingHint: 'Chờ kết nối tới mục Liên hệ (#lien-he)',
   pendingStatusMessage:
     '“Liên hệ hợp tác” đang ở trạng thái chờ kết nối · sẽ dẫn tới #lien-he khi hoàn thiện phần Liên hệ.',
@@ -575,11 +551,14 @@ export const MEDIA_CHANNELS: MediaChannelItem[] = [
     followers: null,
   },
   {
-    id: 'linkedin',
-    platform: 'linkedin',
-    name: 'LinkedIn',
-    url: null,
+    id: 'fitx',
+    platform: 'fitx',
+    name: 'FitX',
+    url: 'https://fitx.vn/',
     followers: null,
+    logoSrc: fitxLogo,
+    logoWidth: 436,
+    logoHeight: 436,
   },
   {
     id: 'instagram',

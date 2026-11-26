@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { Menu, X } from 'lucide-vue-next'
+import brandLogo from '../assets/images/logo.png'
 import { NAV_DESTINATIONS, SITE_BRAND, type NavDestination } from '../config/siteContent'
 import { navigateToContact } from '../composables/useContactNavigation'
 
@@ -72,7 +73,19 @@ onBeforeUnmount(() => {
   <header ref="headerRef" class="site-header">
     <div class="site-header__inner container">
       <a class="site-header__brand" :href="SITE_BRAND.homeHref" @click="closeMobileMenu">
-        {{ SITE_BRAND.fullName }}
+        <img
+          class="site-header__brand-logo"
+          :src="brandLogo"
+          alt="Logo Nguyễn Khánh Ly"
+          width="1024"
+          height="1024"
+          decoding="async"
+        />
+        <strong class="site-header__brand-name">
+          <span class="site-header__brand-surname">{{ SITE_BRAND.surname }}</span>
+          {{ ' ' }}
+          <span class="site-header__brand-given">{{ SITE_BRAND.givenName }}</span>
+        </strong>
       </a>
 
       <!-- Desktop inline navigation (>= 62rem) -->
@@ -96,7 +109,7 @@ onBeforeUnmount(() => {
         </ul>
       </nav>
 
-      <!-- Mobile disclosure toggle (< 48rem) -->
+      <!-- Mobile disclosure toggle (< 62rem) -->
       <button
         type="button"
         class="site-header__menu-btn"
@@ -153,26 +166,53 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   gap: var(--space-md);
   min-height: 4.5rem;
-  padding-block: var(--space-sm);
+  padding-block: var(--space-xs);
 }
 
 .site-header__brand {
-  font-family: var(--font-display);
-  font-size: clamp(1.0625rem, 0.8vw + 0.875rem, 1.375rem);
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  color: var(--color-ink);
-  text-decoration: none;
-  white-space: nowrap;
-  padding-block: var(--space-xs);
-  min-height: 44px;
   display: inline-flex;
   align-items: center;
-  transition: color var(--dur-micro) var(--ease-out);
+  gap: 0.625rem; /* 10px khoảng cách giữa logo và tên */
+  min-height: 44px;
+  padding-block: var(--space-2xs);
+  text-decoration: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: opacity var(--dur-micro) var(--ease-out);
 }
 
-.site-header__brand:hover {
-  color: var(--color-ink-2);
+.site-header__brand-logo {
+  display: block;
+  height: 2.5rem; /* 40px trên mobile */
+  width: auto;
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
+  background: transparent;
+  flex-shrink: 0;
+}
+
+.site-header__brand-name {
+  font-family: var(--font-display);
+  font-size: clamp(0.95rem, 1.3vw + 0.68rem, 1.375rem);
+  font-weight: 700;
+  font-variation-settings: 'opsz' 36, 'SOFT' 25;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+.site-header__brand-surname {
+  color: var(--color-brand-surname);
+}
+
+.site-header__brand-given {
+  color: var(--color-brand-given);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .site-header__brand:hover {
+    opacity: 0.88;
+  }
 }
 
 .site-header__nav-desktop {
@@ -253,6 +293,7 @@ onBeforeUnmount(() => {
   font-weight: 500;
   line-height: 1;
   white-space: nowrap;
+  flex-shrink: 0;
   cursor: pointer;
   transition:
     background-color var(--dur-micro) var(--ease-out),
@@ -303,6 +344,22 @@ onBeforeUnmount(() => {
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+@media (max-width: 23rem) {
+  .site-header__inner {
+    gap: var(--space-sm);
+  }
+
+  .site-header__menu-btn {
+    padding: var(--space-xs) var(--space-sm);
+  }
+}
+
+@media (min-width: 48rem) {
+  .site-header__brand-logo {
+    height: 3rem; /* 48px trên desktop */
   }
 }
 

@@ -55,17 +55,29 @@ function handleCtaClick() {
           :key="channel.id"
           class="media-network__item"
         >
+          <!-- Một thẻ liên kết bao trọn cả ô biểu tượng/logo lẫn dòng tên bên dưới -->
           <a
             v-if="hasChannelUrl(channel)"
             class="channel-card is-linked"
             :href="channel.url"
             target="_blank"
             rel="noopener noreferrer"
-            :aria-label="`${channel.name} của Nguyễn Khánh Ly`"
+            :data-channel-id="channel.id"
+            :aria-label="channel.platform === 'fitx' ? 'FitX — Mở trang chủ fitx.vn' : `${channel.name} của Nguyễn Khánh Ly`"
           >
             <span class="channel-card__icon-box" aria-hidden="true">
+              <img
+                v-if="channel.logoSrc"
+                class="channel-card__logo"
+                :src="channel.logoSrc"
+                alt=""
+                :width="channel.logoWidth"
+                :height="channel.logoHeight"
+                decoding="async"
+              />
+
               <svg
-                v-if="channel.platform === 'facebook'"
+                v-else-if="channel.platform === 'facebook'"
                 viewBox="0 0 24 24"
                 width="24"
                 height="24"
@@ -90,24 +102,6 @@ function handleCtaClick() {
                 stroke-linejoin="round"
               >
                 <path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5" />
-              </svg>
-
-              <svg
-                v-else-if="channel.platform === 'linkedin'"
-                viewBox="0 0 24 24"
-                width="24"
-                height="24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.75"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path
-                  d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"
-                />
-                <rect x="2" y="9" width="4" height="12" />
-                <circle cx="4" cy="4" r="2" />
               </svg>
 
               <svg
@@ -153,10 +147,20 @@ function handleCtaClick() {
           </a>
 
           <!-- Khi chưa gắn link kênh thật: hiển thị bản minh họa tĩnh -->
-          <div v-else class="channel-card is-preview">
+          <div v-else class="channel-card is-preview" :data-channel-id="channel.id">
             <span class="channel-card__icon-box" aria-hidden="true">
+              <img
+                v-if="channel.logoSrc"
+                class="channel-card__logo"
+                :src="channel.logoSrc"
+                alt=""
+                :width="channel.logoWidth"
+                :height="channel.logoHeight"
+                decoding="async"
+              />
+
               <svg
-                v-if="channel.platform === 'facebook'"
+                v-else-if="channel.platform === 'facebook'"
                 viewBox="0 0 24 24"
                 width="24"
                 height="24"
@@ -181,24 +185,6 @@ function handleCtaClick() {
                 stroke-linejoin="round"
               >
                 <path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5" />
-              </svg>
-
-              <svg
-                v-else-if="channel.platform === 'linkedin'"
-                viewBox="0 0 24 24"
-                width="24"
-                height="24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.75"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path
-                  d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"
-                />
-                <rect x="2" y="9" width="4" height="12" />
-                <circle cx="4" cy="4" r="2" />
               </svg>
 
               <svg
@@ -274,16 +260,14 @@ function handleCtaClick() {
         </button>
 
         <p
+          v-if="showPendingStatus"
           id="media-network-pending"
-          class="media-network__pending"
-          :class="{ 'is-visible': showPendingStatus }"
+          class="media-network__pending is-visible"
           role="status"
           aria-live="polite"
         >
-          <template v-if="showPendingStatus">
-            <span class="media-network__pending-dot" aria-hidden="true"></span>
-            <span>{{ MEDIA_NETWORK_SECTION.pendingStatusMessage }}</span>
-          </template>
+          <span class="media-network__pending-dot" aria-hidden="true"></span>
+          <span>{{ MEDIA_NETWORK_SECTION.pendingStatusMessage }}</span>
         </p>
       </div>
     </div>
@@ -365,6 +349,10 @@ function handleCtaClick() {
   border-radius: var(--radius-md);
 }
 
+.channel-card.is-linked {
+  cursor: pointer;
+}
+
 .channel-card__icon-box {
   width: 4rem;
   height: 4rem;
@@ -380,6 +368,15 @@ function handleCtaClick() {
     transform var(--dur-short) var(--ease-out),
     border-color var(--dur-short) var(--ease-out),
     color var(--dur-short) var(--ease-out);
+}
+
+/* Logo PNG nền trong suốt căn chính giữa ô, giữ nguyên tỷ lệ gốc */
+.channel-card__logo {
+  display: block;
+  width: 78%;
+  height: 78%;
+  object-fit: contain;
+  background: transparent;
 }
 
 .channel-card__name {
@@ -501,12 +498,6 @@ function handleCtaClick() {
   font-size: var(--text-xs);
   line-height: 1.45;
   color: var(--color-ink-2);
-  opacity: 0;
-  transition: opacity var(--dur-short) var(--ease-out);
-}
-
-.media-network__pending.is-visible {
-  opacity: 1;
 }
 
 .media-network__pending-dot {

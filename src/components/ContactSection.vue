@@ -6,6 +6,7 @@ import {
   ArrowUpRight,
   CheckCircle2,
   ChevronDown,
+  Copy,
   Info,
   Mail,
   MapPin,
@@ -15,11 +16,10 @@ import {
 } from 'lucide-vue-next'
 import {
   CONTACT_DIRECT_INFO,
-  CONTACT_FORM_INTEGRATION,
   CONTACT_SECTION_COPY,
   CONTACT_TOPIC_OPTIONS,
+  buildComposedZaloMessage,
   buildGoogleMapsDirectionsUrl,
-  hasConfiguredContactEndpoint,
   isValidContactTopic,
   type ContactTopicId,
 } from '../config/contactForm'
@@ -27,9 +27,9 @@ import { useContactNavigation } from '../composables/useContactNavigation'
 
 type FieldKey = 'name' | 'email' | 'topic' | 'message'
 
-interface SubmitOutcome {
-  kind: 'preview' | 'success' | 'error'
-  message: string
+interface ZaloHandoffState {
+  kind: 'copied' | 'manual'
+  composedText: string
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
@@ -63,15 +63,13 @@ const errors = reactive<Record<FieldKey, string>>({
   message: '',
 })
 
-const isSubmitting = ref(false)
-const submitOutcome = ref<SubmitOutcome | null>(null)
+const zaloState = ref<ZaloHandoffState | null>(null)
 
 const nameInputRef = ref<HTMLInputElement | null>(null)
 const emailInputRef = ref<HTMLInputElement | null>(null)
 const topicSelectRef = ref<HTMLSelectElement | null>(null)
 const messageTextareaRef = ref<HTMLTextAreaElement | null>(null)
-
-const isPreviewMode = computed(() => !hasConfiguredContactEndpoint())
+const manualCopyTextareaRef = ref<HTMLTextAreaElement | null>(null)
 
 const hasMessengerUrl = computed(() => {
   return Boolean(
@@ -106,8 +104,8 @@ function handleBlur(field: FieldKey) {
 }
 
 function handleInput(field: FieldKey) {
-  if (submitOutcome.value?.kind === 'success') {
-    submitOutcome.value = null
+  if (zaloState.value) {
+    zaloState.value = null
   }
   if (touched[field]) {
     errors[field] = validateField(field)
@@ -149,93 +147,81 @@ function getSelectedTopicLabel(topicId: ContactTopicId | ''): string {
   return CONTACT_TOPIC_OPTIONS.find((opt) => opt.value === topicId)?.label ?? ''
 }
 
-async function handleSubmit() {
-  if (isSubmitting.value) return
+async function tryCopyTextToClipboard(text: string): Promise<boolean> {
+  if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text)
+      return true
+    } catch {
+      return false
+    }
+  }
 
-  submitOutcome.value = null
+  return false
+}
+
+function selectManualCopyText() {
+  const el = manualCopyTextareaRef.value
+  if (!el) return
+  el.focus()
+  el.select()
+}
+
+async function handleManualCopyRetry() {
+  if (!zaloState.value) return
+  const ok = await tryCopyTextToClipboard(zaloState.value.composedText)
+  if (ok) {
+    zaloState.value = {
+      kind: 'copied',
+      composedText: zaloState.value.composedText,
+    }
+  } else {
+    selectManualCopyText()
+  }
+}
+
+async function handleSubmit() {
+  zaloState.value = null
   const isValid = validateAllFields()
   if (!isValid) return
 
-  // Chế độ xem trước khi chưa gắn endpoint: thông báo rõ và giữ nguyên toàn bộ dữ liệu khách đã nhập
-  if (isPreviewMode.value || !CONTACT_FORM_INTEGRATION.endpointUrl) {
-    submitOutcome.value = {
-      kind: 'preview',
-      message: CONTACT_SECTION_COPY.messages.previewSubmitted,
-    }
-    return
-  }
+  const composedText = buildComposedZaloMessage({
+    name: form.name,
+    email: form.email,
+    topicLabel: getSelectedTopicLabel(form.topic),
+    message: form.message,
+  })
 
-  isSubmitting.value = true
-  const controller = new AbortController()
-  const timer = window.setTimeout(() => controller.abort(), CONTACT_FORM_INTEGRATION.timeoutMs)
+  const copied = await tryCopyTextToClipboard(composedText)
 
-  try {
-    const payload: Record<string, string> = {
-      name: form.name.trim(),
-      email: form.email.trim(),
-      topic: form.topic,
-      topicLabel: getSelectedTopicLabel(form.topic),
-      message: form.message.trim(),
+  // Giữ nguyên dữ liệu khách đã nhập trong form, không xóa trắng và không báo sai “đã gửi”
+  if (copied) {
+    zaloState.value = {
+      kind: 'copied',
+      composedText,
     }
-
-    if (CONTACT_FORM_INTEGRATION.publicFormKey) {
-      payload.access_key = CONTACT_FORM_INTEGRATION.publicFormKey
+    window.open(CONTACT_DIRECT_INFO.zaloHref, '_blank', 'noopener,noreferrer')
+  } else {
+    zaloState.value = {
+      kind: 'manual',
+      composedText,
     }
-
-    const response = await fetch(CONTACT_FORM_INTEGRATION.endpointUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    })
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`)
-    }
-
-    const contentType = response.headers.get('content-type') ?? ''
-    if (contentType.includes('application/json')) {
-      const data = (await response.json()) as Record<string, unknown>
-      if (data.ok === false || data.success === false) {
-        throw new Error('Endpoint rejected submission')
-      }
-    }
-
-    submitOutcome.value = {
-      kind: 'success',
-      message: CONTACT_SECTION_COPY.messages.liveSuccess,
-    }
-    form.name = ''
-    form.email = ''
-    form.topic = ''
-    form.message = ''
-    touched.name = false
-    touched.email = false
-    touched.topic = false
-    touched.message = false
-  } catch {
-    submitOutcome.value = {
-      kind: 'error',
-      message: CONTACT_SECTION_COPY.messages.liveError,
-    }
-  } finally {
-    window.clearTimeout(timer)
-    isSubmitting.value = false
   }
 }
 
 watch(
   [selectedTopicIntent, selectionRevision],
-  ([nextTopic]) => {
+  ([nextTopic, rev]) => {
     if (nextTopic && isValidContactTopic(nextTopic)) {
       form.topic = nextTopic
       errors.topic = ''
-      if (submitOutcome.value) {
-        submitOutcome.value = null
-      }
+      zaloState.value = null
+    } else if (rev > 0 && nextTopic === '') {
+      // Các nút không chỉ định chủ đề (như “Liên hệ hợp tác”) để khách tự chọn chủ đề
+      form.topic = ''
+      touched.topic = false
+      errors.topic = ''
+      zaloState.value = null
     }
   },
   { immediate: true }
@@ -271,11 +257,7 @@ onBeforeUnmount(() => {
           {{ CONTACT_SECTION_COPY.heading }}
         </h2>
 
-        <p class="contact__lead">
-          {{ CONTACT_SECTION_COPY.lead }}
-        </p>
-
-        <!-- Các hàng liên hệ trực tiếp có icon, bấm toàn hàng -->
+        <!-- Các hàng Hotline, Zalo, Email và Địa chỉ đặt ngay dưới tiêu đề -->
         <ul class="contact__direct-list" aria-label="Thông tin liên hệ trực tiếp">
           <!-- Hotline -->
           <li class="contact__direct-item">
@@ -418,8 +400,6 @@ onBeforeUnmount(() => {
                 class="contact-field__control contact-field__control--single"
                 :class="{ 'is-invalid': Boolean(errors.name) }"
                 :placeholder="CONTACT_SECTION_COPY.fields.namePlaceholder"
-                :disabled="isSubmitting"
-                :aria-disabled="isSubmitting ? 'true' : undefined"
                 :aria-invalid="errors.name ? 'true' : undefined"
                 :aria-describedby="errors.name ? 'contact-name-error' : undefined"
                 @blur="handleBlur('name')"
@@ -459,8 +439,6 @@ onBeforeUnmount(() => {
                 class="contact-field__control contact-field__control--single"
                 :class="{ 'is-invalid': Boolean(errors.email) }"
                 :placeholder="CONTACT_SECTION_COPY.fields.emailPlaceholder"
-                :disabled="isSubmitting"
-                :aria-disabled="isSubmitting ? 'true' : undefined"
                 :aria-invalid="errors.email ? 'true' : undefined"
                 :aria-describedby="errors.email ? 'contact-email-error' : undefined"
                 @blur="handleBlur('email')"
@@ -501,8 +479,6 @@ onBeforeUnmount(() => {
                   'is-placeholder': !form.topic,
                   'is-invalid': Boolean(errors.topic),
                 }"
-                :disabled="isSubmitting"
-                :aria-disabled="isSubmitting ? 'true' : undefined"
                 :aria-invalid="errors.topic ? 'true' : undefined"
                 :aria-describedby="errors.topic ? 'contact-topic-error' : undefined"
                 @blur="handleBlur('topic')"
@@ -558,8 +534,6 @@ onBeforeUnmount(() => {
               class="contact-field__control contact-field__control--textarea"
               :class="{ 'is-invalid': Boolean(errors.message) }"
               :placeholder="CONTACT_SECTION_COPY.fields.messagePlaceholder"
-              :disabled="isSubmitting"
-              :aria-disabled="isSubmitting ? 'true' : undefined"
               :aria-invalid="errors.message ? 'true' : undefined"
               :aria-describedby="errors.message ? 'contact-message-error' : undefined"
               @blur="handleBlur('message')"
@@ -582,70 +556,99 @@ onBeforeUnmount(() => {
             </p>
           </div>
 
-          <!-- Nút gửi & trạng thái chế độ xem trước đặt ngay cạnh nút gửi -->
+          <!-- Nút gửi & hướng dẫn dán vào Zalo đặt ngay cạnh nút -->
           <div class="contact-form__footer">
             <div class="contact-form__actions">
-              <button
-                type="submit"
-                class="contact-submit"
-                :disabled="isSubmitting"
-                :aria-disabled="isSubmitting ? 'true' : undefined"
-              >
+              <button type="submit" class="contact-submit">
                 <span class="contact-submit__label">
-                  {{
-                    isSubmitting
-                      ? CONTACT_SECTION_COPY.submittingLabel
-                      : CONTACT_SECTION_COPY.submitLabel
-                  }}
+                  {{ CONTACT_SECTION_COPY.submitLabel }}
                 </span>
                 <span class="contact-submit__icon" aria-hidden="true">
                   <ArrowRight :size="16" :stroke-width="2" />
                 </span>
               </button>
 
-              <p
-                v-if="isPreviewMode"
-                class="contact-form__mode-inline"
-                data-form-mode="preview"
-              >
-                <span class="contact-form__mode-dot" aria-hidden="true"></span>
-                <span>{{ CONTACT_SECTION_COPY.previewModeBadge }}</span>
+              <p class="contact-form__zalo-hint">
+                {{ CONTACT_SECTION_COPY.zaloInlineHint }}
               </p>
             </div>
 
-            <div
-              class="contact-form__status-slot"
-              :role="submitOutcome?.kind === 'error' ? 'alert' : 'status'"
-              aria-live="polite"
-            >
+            <!-- Phản hồi sau khi bấm Gửi lời nhắn (sao chép thành công hoặc fallback tự sao chép) -->
+            <div class="contact-form__status-slot" role="status" aria-live="polite">
               <div
-                v-if="submitOutcome"
-                class="contact-status"
-                :class="`contact-status--${submitOutcome.kind}`"
-                :data-submit-state="submitOutcome.kind"
+                v-if="zaloState?.kind === 'copied'"
+                class="contact-status contact-status--copied"
+                data-zalo-state="copied"
               >
                 <CheckCircle2
-                  v-if="submitOutcome.kind === 'success'"
                   class="contact-status__icon"
                   :size="18"
                   :stroke-width="2"
                   aria-hidden="true"
                 />
-                <AlertCircle
-                  v-else-if="submitOutcome.kind === 'error'"
-                  class="contact-status__icon"
-                  :size="18"
-                  :stroke-width="2"
-                  aria-hidden="true"
-                />
+                <div class="contact-status__content">
+                  <p class="contact-status__text">
+                    {{ CONTACT_SECTION_COPY.messages.copiedReadyForZalo }}
+                  </p>
+                  <a
+                    class="contact-status__zalo-link"
+                    :href="CONTACT_DIRECT_INFO.zaloHref"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <span>{{ CONTACT_SECTION_COPY.openZaloLabel }}</span>
+                    <ArrowUpRight :size="14" :stroke-width="2" aria-hidden="true" />
+                  </a>
+                </div>
+              </div>
+
+              <div
+                v-else-if="zaloState?.kind === 'manual'"
+                class="contact-status contact-status--manual"
+                data-zalo-state="manual"
+              >
                 <Info
-                  v-else
                   class="contact-status__icon"
                   :size="18"
                   :stroke-width="2"
                   aria-hidden="true"
                 />
-                <p class="contact-status__text">{{ submitOutcome.message }}</p>
+                <div class="contact-status__content">
+                  <p class="contact-status__text">
+                    {{ CONTACT_SECTION_COPY.messages.manualCopyFallback }}
+                  </p>
+
+                  <textarea
+                    ref="manualCopyTextareaRef"
+                    class="contact-status__copy-box"
+                    readonly
+                    rows="4"
+                    :value="zaloState.composedText"
+                    aria-label="Nội dung lời nhắn để sao chép sang Zalo"
+                    @click="selectManualCopyText"
+                  ></textarea>
+
+                  <div class="contact-status__manual-actions">
+                    <button
+                      type="button"
+                      class="contact-status__retry-btn"
+                      @click="handleManualCopyRetry"
+                    >
+                      <Copy :size="14" :stroke-width="2" aria-hidden="true" />
+                      <span>{{ CONTACT_SECTION_COPY.copyAgainLabel }}</span>
+                    </button>
+
+                    <a
+                      class="contact-status__zalo-link"
+                      :href="CONTACT_DIRECT_INFO.zaloHref"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <span>{{ CONTACT_SECTION_COPY.openZaloLabel }}</span>
+                      <ArrowUpRight :size="14" :stroke-width="2" aria-hidden="true" />
+                    </a>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -704,16 +707,7 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
-.contact__lead {
-  margin: var(--space-md) 0 0;
-  max-width: 46ch;
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  line-height: 1.62;
-  color: var(--color-ink-2);
-}
-
-/* Danh sách các hàng liên hệ trực tiếp bên dưới lời giới thiệu */
+/* Các hàng liên hệ trực tiếp đặt ngay dưới tiêu đề */
 .contact__direct-list {
   list-style: none;
   margin: var(--space-lg) 0 0;
@@ -878,7 +872,6 @@ onBeforeUnmount(() => {
   gap: var(--space-2xs);
 }
 
-/* Mobile-first (< 40rem): 1 cột cho toàn bộ trường */
 .contact-form__row {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -900,7 +893,6 @@ onBeforeUnmount(() => {
   color: var(--color-ink);
 }
 
-/* Hallmark Gates 41, 42, 43, 45 */
 .contact-field__control {
   width: 100%;
   min-width: 0;
@@ -948,12 +940,6 @@ onBeforeUnmount(() => {
 .contact-field__control.is-invalid {
   border-color: var(--color-error-border);
   background: var(--color-error-bg);
-}
-
-.contact-field__control:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-  background: var(--color-field-disabled-bg);
 }
 
 .contact-field__select-wrap {
@@ -1016,7 +1002,6 @@ onBeforeUnmount(() => {
   gap: var(--space-sm);
 }
 
-/* Nút Gửi lời nhắn: chiều cao 3rem (48px) khớp với các trường input & select */
 .contact-submit {
   display: inline-flex;
   align-items: center;
@@ -1035,6 +1020,7 @@ onBeforeUnmount(() => {
   font-weight: 600;
   line-height: 1;
   white-space: nowrap;
+  flex-shrink: 0;
   cursor: pointer;
   transition:
     background-color var(--dur-short) var(--ease-out),
@@ -1059,46 +1045,31 @@ onBeforeUnmount(() => {
   transition: transform var(--dur-short) var(--ease-out);
 }
 
-.contact-form__mode-inline {
+.contact-form__zalo-hint {
   margin: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
   font-family: var(--font-body);
   font-size: var(--text-xs);
   font-weight: 500;
-  line-height: 1.4;
-  color: var(--color-muted);
-}
-
-.contact-form__mode-dot {
-  width: 0.4375rem;
-  height: 0.4375rem;
-  border-radius: var(--radius-pill);
-  background: var(--color-accent);
-  flex-shrink: 0;
+  line-height: 1.45;
+  color: var(--color-ink-2);
+  min-width: 0;
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .contact-submit:hover:not(:disabled) {
+  .contact-submit:hover {
     background: var(--color-accent-hover);
     border-color: var(--color-accent-hover);
     transform: translateY(-1.5px);
   }
 
-  .contact-submit:hover:not(:disabled) .contact-submit__icon {
+  .contact-submit:hover .contact-submit__icon {
     transform: translateX(2px);
   }
 }
 
-.contact-submit:active:not(:disabled) {
+.contact-submit:active {
   transform: translateY(0);
   background: var(--color-accent-active);
-}
-
-.contact-submit:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
 }
 
 .contact-form__status-slot {
@@ -1118,22 +1089,16 @@ onBeforeUnmount(() => {
   line-height: 1.5;
 }
 
-.contact-status--preview {
-  background: var(--color-status-preview-bg);
-  border-color: var(--color-status-preview-border);
-  color: var(--color-ink);
-}
-
-.contact-status--success {
+.contact-status--copied {
   background: var(--color-status-success-bg);
   border-color: var(--color-status-success-border);
   color: var(--color-status-success);
 }
 
-.contact-status--error {
-  background: var(--color-error-bg);
-  border-color: var(--color-error-border);
-  color: var(--color-error);
+.contact-status--manual {
+  background: var(--color-status-preview-bg);
+  border-color: var(--color-status-preview-border);
+  color: var(--color-ink);
 }
 
 .contact-status__icon {
@@ -1141,15 +1106,67 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
 }
 
-.contact-status--preview .contact-status__icon {
-  color: var(--color-ink);
+.contact-status__content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-xs);
+  min-width: 0;
 }
 
 .contact-status__text {
   margin: 0;
 }
 
-/* Tablet & Desktop (>= 40rem): Họ tên + Email trên cùng hàng; trạng thái xem trước nằm ngay cạnh nút Gửi */
+.contact-status__copy-box {
+  width: 100%;
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-rule);
+  background: var(--color-field-bg);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  resize: none;
+}
+
+.contact-status__manual-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.contact-status__retry-btn,
+.contact-status__zalo-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  min-height: 2.75rem;
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.contact-status__retry-btn {
+  border: 1px solid var(--color-rule);
+  background: var(--color-surface-white);
+  color: var(--color-ink);
+}
+
+.contact-status__zalo-link {
+  border: 1px solid var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+}
+
 @media (min-width: 40rem) {
   .contact-form__row {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -1158,7 +1175,6 @@ onBeforeUnmount(() => {
 
   .contact-form__actions {
     flex-direction: row;
-    flex-wrap: wrap;
     align-items: center;
     gap: var(--space-md);
   }
@@ -1167,9 +1183,12 @@ onBeforeUnmount(() => {
     width: auto;
     justify-content: center;
   }
+
+  .contact-form__zalo-hint {
+    flex: 1 1 12rem;
+  }
 }
 
-/* Desktop (>= 60rem): Bố cục 2 cột — thông tin liên hệ bên trái, form bên phải */
 @media (min-width: 60rem) {
   .contact__inner {
     grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);

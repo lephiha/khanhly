@@ -53,10 +53,9 @@ export function navigateToContact(topic?: ContactTopicId, event?: Event): void {
     event.preventDefault()
   }
 
-  if (topic) {
-    selectedTopicIntent.value = topic
-    selectionRevision.value += 1
-  }
+  // Khi nút truyền `topic` -> chọn sẵn chủ đề đó; khi không truyền `topic` (ví dụ “Liên hệ hợp tác”) -> để trống cho khách tự chọn
+  selectedTopicIntent.value = topic ?? ''
+  selectionRevision.value += 1
 
   const targetHref = buildContactHref(topic)
   if (window.location.hash !== targetHref) {
@@ -72,7 +71,6 @@ export function navigateToContact(topic?: ContactTopicId, event?: Event): void {
     block: 'start',
   })
 
-  // Đặt focus lên vùng #lien-he (không gây nhảy cuộn) để lần nhấn Tab kế tiếp đi thẳng vào trường đầu tiên của form
   sectionEl.focus({ preventScroll: true })
 }
 
@@ -84,4 +82,3 @@ export function useContactNavigation() {
     syncContactIntentFromLocation,
   }
 }
-

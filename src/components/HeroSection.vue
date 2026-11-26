@@ -1,11 +1,7 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { ArrowRight } from 'lucide-vue-next'
+import { computed } from 'vue'
 import { HERO_PORTRAIT } from '../config/heroPortrait'
-import { HERO_CONTENT, type HeroAction } from '../config/siteContent'
-import { navigateToContact } from '../composables/useContactNavigation'
-
-const pendingFeedback = ref<string | null>(null)
+import { HERO_CONTENT } from '../config/siteContent'
 
 const portraitVars = computed(() => ({
   '--portrait-fit': HERO_PORTRAIT.crop.objectFit,
@@ -15,123 +11,56 @@ const portraitVars = computed(() => ({
   '--portrait-ratio-desktop': HERO_PORTRAIT.crop.desktopAspectRatio,
   '--portrait-ratio-mobile': HERO_PORTRAIT.crop.mobileAspectRatio,
 }))
-
-function handleReadyLinkClick(action: HeroAction, event: MouseEvent) {
-  if (action.contactTopic) {
-    navigateToContact(action.contactTopic, event)
-  }
-}
-
-function handleActionClick(action: HeroAction) {
-  if (action.status === 'ready' && action.href) {
-    window.location.assign(action.href)
-    return
-  }
-
-  pendingFeedback.value = `“${action.label}” đang ở trạng thái chờ kết nối — sẽ gắn liên kết ở phase tiếp theo.`
-}
 </script>
 
 <template>
-  <section id="hero" class="hero" aria-labelledby="hero-heading">
+  <section id="hero" class="hero" :style="portraitVars" aria-labelledby="hero-heading">
+    <div class="hero__media reveal" style="--i: 0">
+      <figure class="hero__figure">
+        <div class="hero__portrait-frame">
+          <img
+            class="hero__portrait-img"
+            :src="HERO_PORTRAIT.src"
+            :alt="HERO_PORTRAIT.alt"
+            :width="HERO_PORTRAIT.width"
+            :height="HERO_PORTRAIT.height"
+            loading="eager"
+            decoding="sync"
+            fetchpriority="high"
+          />
+          <div class="hero__mobile-scrim" aria-hidden="true"></div>
+        </div>
+      </figure>
+    </div>
+
     <div class="hero__inner">
       <div class="hero__copy">
-        <span class="hero__accent-rule reveal" style="--i: 0" aria-hidden="true"></span>
-
         <h1 id="hero-heading" class="hero__title reveal" style="--i: 1">
-          <span
-            v-for="(line, index) in HERO_CONTENT.nameLines"
-            :key="index"
-            class="hero__title-line"
-          >
-            {{ line }}
-          </span>
+          {{ HERO_CONTENT.title }}
         </h1>
 
-        <p class="hero__lead reveal" style="--i: 2">
-          {{ HERO_CONTENT.description }}
+        <p class="hero__role reveal" style="--i: 2">
+          {{ HERO_CONTENT.roleLine }}
         </p>
-
-        <div class="hero__actions reveal" style="--i: 3">
-          <template v-for="action in HERO_CONTENT.actions" :key="action.id">
-            <a
-              v-if="action.status === 'ready' && action.href"
-              :href="action.href"
-              class="hero-btn"
-              :class="`hero-btn--${action.variant}`"
-              @click="handleReadyLinkClick(action, $event)"
-            >
-              <span class="hero-btn__label">{{ action.label }}</span>
-              <span class="hero-btn__icon" aria-hidden="true">
-                <ArrowRight :size="16" :stroke-width="2" />
-              </span>
-            </a>
-
-            <button
-              v-else
-              type="button"
-              class="hero-btn"
-              :class="`hero-btn--${action.variant}`"
-              :aria-describedby="pendingFeedback ? 'hero-pending-status' : undefined"
-              :data-connection="action.status"
-              :title="action.pendingNote || undefined"
-              @click="handleActionClick(action)"
-            >
-              <span class="hero-btn__label">{{ action.label }}</span>
-              <span class="hero-btn__icon" aria-hidden="true">
-                <ArrowRight :size="16" :stroke-width="2" />
-              </span>
-            </button>
-          </template>
-        </div>
-
-        <p
-          v-if="pendingFeedback"
-          id="hero-pending-status"
-          class="hero__status is-visible"
-          role="status"
-          aria-live="polite"
-        >
-          <span class="hero__status-dot" aria-hidden="true"></span>
-          <span>{{ pendingFeedback }}</span>
-        </p>
-      </div>
-
-      <div class="hero__media reveal" style="--i: 2">
-        <figure class="hero__figure" :style="portraitVars">
-          <div class="hero__portrait-frame">
-            <img
-              class="hero__portrait-img"
-              :src="HERO_PORTRAIT.src"
-              :alt="HERO_PORTRAIT.alt"
-              :width="HERO_PORTRAIT.width"
-              :height="HERO_PORTRAIT.height"
-              loading="eager"
-              decoding="sync"
-              fetchpriority="high"
-            />
-          </div>
-
-          <figcaption v-if="HERO_PORTRAIT.isPlaceholder" class="hero__portrait-caption">
-            Ảnh chân dung mẫu (sẽ thay ảnh thật)
-          </figcaption>
-        </figure>
       </div>
     </div>
   </section>
 </template>
 
 <style scoped>
-/* Mobile-first (< 60rem): xếp chữ và ảnh theo chiều dọc trên nền trắng ánh hồng */
+/* Mobile-first (< 60rem): chân dung thật phủ toàn bộ khung hero ngay dưới header, chữ trắng đặt trực tiếp ở góc dưới bên trái */
 .hero {
   --hero-portrait-lag: 1.25rem;
   position: relative;
   z-index: var(--z-base);
   width: 100%;
-  background: var(--color-hero-bg);
-  padding-block: clamp(1.75rem, 4vw, 2.5rem) clamp(2rem, 4.5vw, 3rem);
+  aspect-ratio: var(--portrait-ratio-mobile, 3 / 4);
+  max-height: min(84dvh, 42rem);
+  display: flex;
+  align-items: flex-end;
+  background: var(--color-ink);
   scroll-margin-top: var(--header-height);
-  overflow: visible;
+  clip-path: inset(0 0 -6rem 0);
 }
 
 .hero::after {
@@ -140,199 +69,28 @@ function handleActionClick(action: HeroAction) {
   inset-inline: 0;
   bottom: 0;
   z-index: var(--z-raised);
-  height: clamp(4rem, 12vh, 8rem);
+  height: clamp(3.5rem, 10vh, 7rem);
   background: linear-gradient(to bottom, transparent, var(--color-hero-exit-veil));
   opacity: var(--hero-handoff-p, 0);
   pointer-events: none;
 }
 
-.hero__inner {
-  width: 100%;
-  max-width: var(--container-max);
-  margin-inline: auto;
-  padding-inline: var(--page-gutter);
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: clamp(1.75rem, 4.5vw, 2.5rem);
-  align-items: center;
-}
-
-.hero__copy {
-  position: relative;
-  z-index: calc(var(--z-base) + 1);
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  min-width: 0;
-}
-
-.hero__accent-rule {
-  display: block;
-  width: 2.75rem;
-  height: 2.5px;
-  border-radius: var(--radius-pill);
-  background: var(--color-accent);
-  margin-bottom: var(--space-lg);
-}
-
-.hero__title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--text-display);
-  font-weight: 500;
-  font-variation-settings: 'opsz' 144, 'SOFT' 30;
-  line-height: 1.08;
-  letter-spacing: -0.025em;
-  color: var(--color-ink);
-  overflow-wrap: anywhere;
-  min-width: 0;
-}
-
-.hero__title-line {
-  display: block;
-}
-
-.hero__lead {
-  margin: var(--space-lg) 0 0;
-  max-width: 34ch;
-  font-family: var(--font-body);
-  font-size: clamp(1.0625rem, 0.55vw + 0.925rem, 1.25rem);
-  font-weight: 400;
-  line-height: 1.6;
-  color: var(--color-ink-2);
-}
-
-.hero__actions {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: var(--space-sm);
-  width: 100%;
-  margin-top: var(--space-xl);
-}
-
-.hero-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-  min-height: 3rem;
-  padding: var(--space-xs) var(--space-xs) var(--space-xs) var(--space-lg);
-  border-radius: var(--radius-pill);
-  border: 1px solid transparent;
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 500;
-  line-height: 1;
-  white-space: nowrap;
-  cursor: pointer;
-  text-decoration: none;
-  transition:
-    background-color var(--dur-short) var(--ease-out),
-    border-color var(--dur-short) var(--ease-out),
-    transform var(--dur-micro) var(--ease-out);
-}
-
-.hero-btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.hero-btn__label {
-  white-space: nowrap;
-}
-
-.hero-btn__icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: var(--radius-pill);
-  flex-shrink: 0;
-  transition: transform var(--dur-short) var(--ease-out);
-}
-
-.hero-btn--primary {
-  background: var(--color-accent);
-  color: var(--color-accent-ink);
-  border-color: var(--color-accent);
-}
-
-.hero-btn--primary .hero-btn__icon {
-  background: var(--color-ink);
-  color: var(--color-paper);
-}
-
-.hero-btn--secondary {
-  background: var(--color-surface-white);
-  color: var(--color-ink);
-  border-color: var(--color-rule);
-}
-
-.hero-btn--secondary .hero-btn__icon {
-  background: var(--color-paper-2);
-  color: var(--color-ink);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .hero-btn:hover {
-    transform: translateY(-1.5px);
-  }
-
-  .hero-btn--primary:hover {
-    background: var(--color-accent-hover);
-    border-color: var(--color-accent-hover);
-  }
-
-  .hero-btn--secondary:hover {
-    border-color: var(--color-ink);
-    background: var(--color-paper-2);
-  }
-
-  .hero-btn:hover .hero-btn__icon {
-    transform: translateX(2px);
-  }
-}
-
-.hero-btn:active {
-  transform: translateY(0);
-}
-
-.hero-btn--primary:active {
-  background: var(--color-accent-active);
-}
-
-.hero__status {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--space-xs);
-  min-height: 1.25rem;
-  margin: var(--space-sm) 0 0;
-  font-size: var(--text-xs);
-  line-height: 1.5;
-  color: var(--color-ink-2);
-}
-
-.hero__status-dot {
-  width: 0.375rem;
-  height: 0.375rem;
-  border-radius: var(--radius-pill);
-  background: var(--color-accent);
-  flex-shrink: 0;
-  transform: translateY(-1px);
-}
-
-/* Mobile portrait: giữ trọn khung 1:1 (960 × 960) thấy đủ đỉnh đầu và hai vai */
 .hero__media {
-  width: 100%;
-  max-width: 28rem;
-  margin-inline: auto;
-  min-width: 0;
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-base);
+  pointer-events: none;
+}
+
+.hero__media.reveal {
+  transform: none;
+  animation-name: hero-media-fade;
 }
 
 .hero__figure {
   margin: 0;
+  width: 100%;
+  height: 100%;
   transform: translate3d(
     0,
     calc(var(--hero-handoff-p, 0) * var(--hero-portrait-lag, 0px)),
@@ -343,117 +101,103 @@ function handleActionClick(action: HeroAction) {
 
 .hero__portrait-frame {
   position: relative;
-  aspect-ratio: var(--portrait-ratio-mobile);
-  border-radius: var(--radius-md);
+  width: 100%;
+  height: 100%;
   overflow: hidden;
-  background: var(--color-paper-2);
-  border: var(--rule-hairline);
-  box-shadow: var(--shadow-card);
 }
 
 .hero__portrait-img {
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: var(--portrait-fit);
-  object-position: var(--portrait-pos-mobile);
-  transform: scale(var(--portrait-scale));
+  object-fit: var(--portrait-fit, cover);
+  object-position: var(--portrait-pos-mobile, 53% 6%);
+  transform: scale(var(--portrait-scale, 1));
   transform-origin: center top;
 }
 
-.hero__portrait-caption {
-  margin-top: var(--space-xs);
-  text-align: end;
-  font-size: var(--text-xs);
-  line-height: 1.4;
-  color: var(--color-muted);
+/* Gradient tối nhẹ chỉ phủ phần dưới ảnh trên mobile, giữ nguyên độ sáng tự nhiên của vùng mặt ở nửa trên */
+.hero__mobile-scrim {
+  position: absolute;
+  inset: 48% 0 0 0;
+  background: var(--scrim-hero-mobile-bottom);
+  pointer-events: none;
 }
 
-/* Breakpoint >= 30rem (480px): hai nút nằm cạnh nhau */
-@media (min-width: 30rem) {
-  .hero__actions {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    width: auto;
-  }
-
-  .hero-btn {
-    justify-content: center;
-    padding: var(--space-xs) var(--space-xs) var(--space-xs) var(--space-lg);
-  }
+.hero__inner {
+  position: relative;
+  z-index: calc(var(--z-base) + 2);
+  width: 100%;
+  padding: clamp(1.25rem, 5.5vw, 1.5rem);
 }
 
-/* Breakpoint >= 44rem (704px): tablet */
+.hero__copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.hero__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 6.4vw, 2.25rem);
+  font-weight: 700;
+  font-variation-settings: 'opsz' 96, 'SOFT' 20;
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+  color: var(--color-hero-overlay-ink);
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+.hero__role {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: clamp(0.875rem, 3.6vw, 1.0625rem);
+  font-weight: 500;
+  line-height: 1.45;
+  color: var(--color-hero-overlay-role);
+  max-width: 38ch;
+  overflow-wrap: break-word;
+}
+
 @media (min-width: 44rem) {
   .hero {
     --hero-portrait-lag: 2.25rem;
   }
-
-  .hero__media {
-    max-width: 31rem;
-  }
 }
 
-/* Breakpoint >= 60rem (960px): Banner ngang tràn chiều rộng — chữ trái trên nền trắng ánh hồng, chân dung lớn bên phải hòa mép trái vào nền sáng */
+/* Desktop (>= 60rem / 960px): nền trắng ánh hồng, chữ căn giữa theo chiều cao bên trái, tên in đậm 1 dòng, chân dung thật bên phải */
 @media (min-width: 60rem) {
   .hero {
     --hero-portrait-lag: 4.25rem;
+    aspect-ratio: auto;
+    max-height: none;
     min-height: clamp(35rem, calc(100dvh - var(--header-height)), 54rem);
-    display: flex;
     align-items: center;
+    background: var(--color-hero-bg);
     padding-block: clamp(2.5rem, 4vw, 3.75rem);
     clip-path: inset(0 0 -10rem 0);
   }
 
-  .hero__inner {
-    position: static;
-    grid-template-columns: minmax(0, 1fr);
-    padding-inline: var(--page-gutter);
-  }
-
-  .hero__copy {
-    position: relative;
-    z-index: calc(var(--z-base) + 2);
-    max-width: clamp(27rem, 42vw, 35rem);
-  }
-
-  .hero__title-line {
-    white-space: nowrap;
-  }
-
   .hero__media {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    right: -3.5rem;
-    z-index: var(--z-base);
+    inset: 0 -3.5rem 0 auto;
     width: auto;
-    max-width: none;
-    margin: 0;
-    pointer-events: none;
-  }
-
-  .hero__media.reveal {
-    transform: none;
-    animation-name: hero-media-fade;
   }
 
   .hero__figure {
+    width: auto;
     height: 100%;
     display: flex;
     justify-content: flex-end;
   }
 
   .hero__portrait-frame {
-    position: relative;
-    height: 100%;
     width: auto;
-    aspect-ratio: var(--portrait-ratio-desktop);
-    border-radius: 0;
-    border: 0;
-    box-shadow: none;
-    background: transparent;
+    height: 100%;
+    aspect-ratio: var(--portrait-ratio-desktop, 1 / 1);
     -webkit-mask-image: var(--mask-hero-portrait-left);
     mask-image: var(--mask-hero-portrait-left);
   }
@@ -468,17 +212,51 @@ function handleActionClick(action: HeroAction) {
   }
 
   .hero__portrait-img {
-    width: 100%;
-    height: 100%;
     object-fit: contain;
-    object-position: var(--portrait-pos-desktop);
+    object-position: var(--portrait-pos-desktop, 100% 100%);
     transform: none;
+  }
+
+  .hero__mobile-scrim {
+    display: none;
+  }
+
+  .hero__inner {
+    position: static;
+    max-width: var(--container-max);
+    margin-inline: auto;
+    padding-block: 0;
+    padding-inline: var(--page-gutter);
+  }
+
+  .hero__copy {
+    position: relative;
+    z-index: calc(var(--z-base) + 2);
+    gap: var(--space-md);
+    max-width: clamp(28rem, 47vw, 42rem);
+  }
+
+  .hero__title {
+    font-size: clamp(2.125rem, 2.85vw + 0.55rem, 3.625rem);
+    font-weight: 700;
+    font-variation-settings: 'opsz' 144, 'SOFT' 20;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--color-ink);
+  }
+
+  .hero__role {
+    font-size: clamp(1.0625rem, 0.45vw + 0.9rem, 1.25rem);
+    font-weight: 500;
+    line-height: 1.55;
+    color: var(--color-ink-2);
+    max-width: none;
   }
 }
 
 @media (min-width: 76rem) {
   .hero__media {
-    right: 0;
+    inset: 0 0 0 auto;
   }
 }
 
