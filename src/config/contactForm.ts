@@ -116,14 +116,13 @@ export function buildGoogleMapsDirectionsUrl(
 export const CONTACT_SECTION_COPY = {
   id: 'lien-he',
   heading: 'Kết nối với Khánh Ly',
-  zaloInlineHint: 'Dán lời nhắn vào cuộc trò chuyện Zalo rồi bấm Gửi.',
   openZaloLabel: 'Mở Zalo',
   copyAgainLabel: 'Sao chép nội dung',
   fields: {
     nameLabel: 'Họ tên',
-    namePlaceholder: 'Ví dụ: Trần Minh Anh',
+    namePlaceholder: '',
     emailLabel: 'Email',
-    emailPlaceholder: 'ten@congty.vn',
+    emailPlaceholder: '',
     topicLabel: 'Chủ đề',
     topicPlaceholder: 'Chọn chủ đề trao đổi',
     messageLabel: 'Lời nhắn',

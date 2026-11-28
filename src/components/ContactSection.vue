@@ -556,7 +556,7 @@ onBeforeUnmount(() => {
             </p>
           </div>
 
-          <!-- Nút gửi & hướng dẫn dán vào Zalo đặt ngay cạnh nút -->
+          <!-- Nút gửi lời nhắn -->
           <div class="contact-form__footer">
             <div class="contact-form__actions">
               <button type="submit" class="contact-submit">
@@ -567,10 +567,6 @@ onBeforeUnmount(() => {
                   <ArrowRight :size="16" :stroke-width="2" />
                 </span>
               </button>
-
-              <p class="contact-form__zalo-hint">
-                {{ CONTACT_SECTION_COPY.zaloInlineHint }}
-              </p>
             </div>
 
             <!-- Phản hồi sau khi bấm Gửi lời nhắn (sao chép thành công hoặc fallback tự sao chép) -->

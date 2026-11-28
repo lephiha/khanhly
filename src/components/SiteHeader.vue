@@ -1,13 +1,20 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Menu, X } from 'lucide-vue-next'
 import brandLogo from '../assets/images/logo.png'
 import { NAV_DESTINATIONS, SITE_BRAND, type NavDestination } from '../config/siteContent'
 import { navigateToContact } from '../composables/useContactNavigation'
+import {
+  navigateApp,
+  scrollCurrentPageToTop,
+  useAppRouter,
+} from '../composables/useAppRouter'
+
+const { currentRoute } = useAppRouter()
 
 const isMobileMenuOpen = ref(false)
 const headerRef = ref<HTMLElement | null>(null)
-const activeHref = ref<string>(NAV_DESTINATIONS[0]?.href ?? '#hero')
+const activeHomeAnchor = ref<string>('#hero')
 let sectionObserver: IntersectionObserver | null = null
 
 function toggleMobileMenu() {
@@ -18,11 +25,85 @@ function closeMobileMenu() {
   isMobileMenuOpen.value = false
 }
 
-function handleNavLinkClick(item: NavDestination, event: MouseEvent) {
-  activeHref.value = item.href
+function extractHashFromHref(href: string): string | null {
+  const hashIdx = href.indexOf('#')
+  return hashIdx >= 0 ? href.slice(hashIdx) : null
+}
+
+function isNavItemActive(item: NavDestination): boolean {
+  if (
+    currentRoute.value.name === 'inspire-wellness-library' ||
+    currentRoute.value.name === 'inspire-wellness-detail'
+  ) {
+    return item.id === 'video-series'
+  }
+  const itemHash = extractHashFromHref(item.href)
+  return Boolean(itemHash && activeHomeAnchor.value === itemHash)
+}
+
+function handleBrandClick(event: MouseEvent) {
   closeMobileMenu()
-  if (item.href === '#lien-he') {
-    navigateToContact(undefined, event)
+  if (currentRoute.value.name === 'home') {
+    activeHomeAnchor.value = '#hero'
+    scrollCurrentPageToTop(event)
+    return
+  }
+  void navigateApp('/', event)
+}
+
+async function handleNavLinkClick(item: NavDestination, event: MouseEvent) {
+  closeMobileMenu()
+
+  if (item.href.startsWith('/inspire-wellness')) {
+    await navigateApp(item.href, event)
+    return
+  }
+
+  const itemHash = extractHashFromHref(item.href)
+  if (currentRoute.value.name === 'home') {
+    if (itemHash) {
+      activeHomeAnchor.value = itemHash
+    }
+    if (itemHash === '#lien-he') {
+      navigateToContact(undefined, event)
+      return
+    }
+    await navigateApp(item.href, event)
+    return
+  }
+
+  // Đang ở trang Inspire Wellness -> chuyển về Home và cuộn tới đúng mục
+  if (itemHash === '#lien-he') {
+    await navigateApp('/#lien-he', event)
+    navigateToContact(undefined)
+    return
+  }
+  await navigateApp(item.href, event)
+}
+
+function setupHomeSectionObserver() {
+  sectionObserver?.disconnect()
+  sectionObserver = null
+
+  if (currentRoute.value.name !== 'home') return
+
+  sectionObserver = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) {
+          activeHomeAnchor.value = `#${entry.target.id}`
+        }
+      }
+    },
+    { rootMargin: '-28% 0px -55% 0px', threshold: 0 }
+  )
+
+  for (const item of NAV_DESTINATIONS) {
+    const itemHash = extractHashFromHref(item.href)
+    if (itemHash && itemHash.length > 1) {
+      const el = document.getElementById(itemHash.slice(1))
+      if (el) sectionObserver.observe(el)
+    }
   }
 }
 
@@ -39,27 +120,19 @@ function onDocumentKeyDown(event: KeyboardEvent) {
   }
 }
 
+watch(
+  () => currentRoute.value.name,
+  async () => {
+    closeMobileMenu()
+    await nextTick()
+    setupHomeSectionObserver()
+  }
+)
+
 onMounted(() => {
   document.addEventListener('pointerdown', onDocumentPointerDown)
   document.addEventListener('keydown', onDocumentKeyDown)
-
-  sectionObserver = new IntersectionObserver(
-    (entries) => {
-      for (const entry of entries) {
-        if (entry.isIntersecting) {
-          activeHref.value = `#${entry.target.id}`
-        }
-      }
-    },
-    { rootMargin: '-28% 0px -55% 0px', threshold: 0 }
-  )
-
-  for (const item of NAV_DESTINATIONS) {
-    if (item.href.startsWith('#')) {
-      const el = document.getElementById(item.href.slice(1))
-      if (el) sectionObserver.observe(el)
-    }
-  }
+  setupHomeSectionObserver()
 })
 
 onBeforeUnmount(() => {
@@ -72,7 +145,7 @@ onBeforeUnmount(() => {
 <template>
   <header ref="headerRef" class="site-header">
     <div class="site-header__inner container">
-      <a class="site-header__brand" :href="SITE_BRAND.homeHref" @click="closeMobileMenu">
+      <a class="site-header__brand" :href="SITE_BRAND.homeHref" @click="handleBrandClick">
         <img
           class="site-header__brand-logo"
           :src="brandLogo"
@@ -94,12 +167,13 @@ onBeforeUnmount(() => {
           <li v-for="item in NAV_DESTINATIONS" :key="item.id">
             <a
               class="site-header__link"
-              :class="{ 'is-active': activeHref === item.href }"
+              :class="{ 'is-active': isNavItemActive(item) }"
               :href="item.href"
+              :aria-current="isNavItemActive(item) && item.id === 'video-series' ? 'page' : undefined"
               @click="handleNavLinkClick(item, $event)"
             >
               <span
-                v-if="activeHref === item.href"
+                v-if="isNavItemActive(item)"
                 class="site-header__dot"
                 aria-hidden="true"
               ></span>
@@ -135,11 +209,12 @@ onBeforeUnmount(() => {
           <a
             class="site-header__mobile-link"
             :href="item.href"
+            :aria-current="isNavItemActive(item) && item.id === 'video-series' ? 'page' : undefined"
             @click="handleNavLinkClick(item, $event)"
           >
             <span
               class="site-header__dot"
-              :class="{ 'is-muted': activeHref !== item.href }"
+              :class="{ 'is-muted': !isNavItemActive(item) }"
               aria-hidden="true"
             ></span>
             <span>{{ item.label }}</span>
@@ -172,7 +247,7 @@ onBeforeUnmount(() => {
 .site-header__brand {
   display: inline-flex;
   align-items: center;
-  gap: 0.625rem; /* 10px khoảng cách giữa logo và tên */
+  gap: 0.625rem;
   min-height: 44px;
   padding-block: var(--space-2xs);
   text-decoration: none;
@@ -183,7 +258,7 @@ onBeforeUnmount(() => {
 
 .site-header__brand-logo {
   display: block;
-  height: 2.5rem; /* 40px trên mobile */
+  height: 2.5rem;
   width: auto;
   aspect-ratio: 1 / 1;
   object-fit: contain;
@@ -359,7 +434,7 @@ onBeforeUnmount(() => {
 
 @media (min-width: 48rem) {
   .site-header__brand-logo {
-    height: 3rem; /* 48px trên desktop */
+    height: 3rem;
   }
 }
 

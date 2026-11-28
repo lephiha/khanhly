@@ -1,10 +1,3 @@
-import reelCover2377447369675924 from '../assets/images/reels/2377447369675924.jpg'
-import reelCover1137207755955189 from '../assets/images/reels/1137207755955189.jpg'
-import reelCover3261278167408762 from '../assets/images/reels/3261278167408762.jpg'
-import reelCover1636549751555465 from '../assets/images/reels/1636549751555465.jpg'
-import reelCover1484135439826750 from '../assets/images/reels/1484135439826750.jpg'
-import reelCover1443435894073407 from '../assets/images/reels/1443435894073407.jpg'
-import reelCover1180628557746539 from '../assets/images/reels/1180628557746539.jpg'
 import stagePlaceholder01 from '../assets/images/stage-placeholder-01.jpg'
 import stagePlaceholder02 from '../assets/images/stage-placeholder-02.jpg'
 import stagePlaceholder03 from '../assets/images/stage-placeholder-03.jpg'
@@ -19,6 +12,11 @@ import eventPlaceholder04 from '../assets/images/event-placeholder-04.jpg'
 import fitxLogo from '../assets/images/fitx-logo.png'
 import { buildContactHref } from '../composables/useContactNavigation'
 import type { ContactTopicId } from './contactForm'
+import {
+  INSPIRE_WELLNESS_BASE_PATH,
+  INSPIRE_WELLNESS_EPISODES,
+  type InspireWellnessEpisode,
+} from './inspireWellness'
 
 export interface NavDestination {
   id: string
@@ -26,26 +24,7 @@ export interface NavDestination {
   href: string
 }
 
-export interface VideoSeriesItem {
-  /** Mã Reel ID trên Facebook (dùng để đối chiếu trực tiếp với tên file ảnh bìa cục bộ) */
-  reelId: string
-  /** Tên video hiển thị ngay dưới khung bìa 16:9 */
-  title: string
-  /**
-   * Ảnh bìa gốc 9:16 cục bộ (import từ `src/assets/images/reels/<reelId>.jpg`).
-   * Nếu chưa có ảnh bìa (`null`), thẻ vẫn giữ nguyên kích thước với ô tạm gọn và mở đúng `reelUrl`.
-   */
-  coverSrc: string | null
-  /** Alt text mô tả đúng nội dung chữ trên ảnh bìa gốc */
-  coverAlt: string
-  /** Kích thước gốc của ảnh bìa để giữ khung ổn định */
-  coverWidth: number
-  coverHeight: number
-  /** Vị trí căn khung ảnh (mặc định `'50% 50%'` giữ trọn bìa 9:16 gốc) */
-  coverObjectPosition?: string
-  /** URL trực tiếp tới Facebook Reel */
-  reelUrl: string
-}
+export type VideoSeriesItem = InspireWellnessEpisode
 
 export interface StageClipItem {
   id: string
@@ -91,11 +70,13 @@ export interface TalkTopicItem {
   ctaLabel?: string
   /** Kiểu bố cục ảnh của thẻ: `'portrait'` (cột dọc bên phải) hoặc `'wide'` (hàng ngang rộng bên dưới nội dung) */
   mediaLayout?: 'portrait' | 'wide'
-  /** Ảnh workshop hoặc chân dung cục bộ (import từ `src/assets/images/...`) */
-  imageSrc: string
-  imageAlt: string
-  imageWidth: number
-  imageHeight: number
+  /** Ảnh workshop hoặc chân dung cục bộ (`null` khi dùng khung ảnh tạm trong preview) */
+  imageSrc: string | null
+  imageAlt?: string
+  imageWidth?: number
+  imageHeight?: number
+  /** Nhãn hiển thị trong khung ảnh tạm khi chưa có ảnh thật phù hợp */
+  placeholderFrameNote?: string
   /** Vị trí căn khung ảnh (ví dụ `'50% 32%'`) */
   imageObjectPosition?: string
   /** Đánh dấu ảnh minh họa trong bản preview */
@@ -161,7 +142,7 @@ export const SITE_BRAND = {
   fullName: 'Nguyễn Khánh Ly',
   surname: 'Nguyễn',
   givenName: 'Khánh Ly',
-  homeHref: '#hero',
+  homeHref: '/',
 } as const
 
 /**
@@ -171,27 +152,27 @@ export const NAV_DESTINATIONS: NavDestination[] = [
   {
     id: 'hero',
     label: 'Trang đầu',
-    href: '#hero',
+    href: '/#hero',
   },
   {
     id: 'video-series',
-    label: 'Inspire Tips',
-    href: '#video-series',
+    label: 'Inspire Wellness',
+    href: INSPIRE_WELLNESS_BASE_PATH,
   },
   {
     id: 'talks',
     label: 'Talks & Workshop',
-    href: '#talks',
+    href: '/#talks',
   },
   {
     id: 'featured-events',
     label: 'Sự kiện',
-    href: '#su-kien',
+    href: '/#su-kien',
   },
   {
     id: 'contact',
     label: 'Liên hệ',
-    href: '#lien-he',
+    href: '/#lien-he',
   },
 ]
 
@@ -202,7 +183,7 @@ export const HERO_CONTENT = {
 
 export const VIDEO_SERIES_SECTION = {
   id: 'video-series',
-  heading: 'Video series từ Khánh Ly',
+  heading: 'Inspire Wellness',
   readyActionLabel: 'Mở Reel trên Facebook',
   prevLabel: 'Reel trước',
   nextLabel: 'Reel tiếp theo',
@@ -213,83 +194,15 @@ export const VIDEO_SERIES_SECTION = {
 } as const
 
 /**
- * Danh sách 7 Facebook Reel của mục “Video series từ Khánh Ly” theo đúng thứ tự hiển thị (1 → 7).
- * - Ảnh bìa gốc đặt tại `src/assets/images/reels/<reelId>.jpg` để tương thích Vite base path / GitHub Pages.
- * - Bìa dọc 9:16 được đặt nguyên vẹn ở giữa khung ngang 16:9 trên nền cùng tông để giữ rõ khuôn mặt và chữ gốc.
+ * Dùng chung danh sách các tập từ `INSPIRE_WELLNESS_EPISODES` (đợt mới xếp trước) cho carousel trên Trang chủ.
  */
-export const VIDEO_SERIES: VideoSeriesItem[] = [
-  {
-    reelId: '2377447369675924',
-    title: 'Đột quỵ có phải là bất ngờ?',
-    coverSrc: reelCover2377447369675924,
-    coverAlt: 'Bìa Reel Inspire Talk – Điều cơ thể chưa nói: Đột quỵ xảy ra khi',
-    coverWidth: 720,
-    coverHeight: 1280,
-    reelUrl: 'https://www.facebook.com/reel/2377447369675924/',
-  },
-  {
-    reelId: '1137207755955189',
-    title: '4 dấu hiệu nguy cơ đột quỵ',
-    coverSrc: reelCover1137207755955189,
-    coverAlt: 'Bìa Reel Inspire Talk – Điều cơ thể chưa nói: Hãy nghĩ ngay đến nguy cơ đột quỵ',
-    coverWidth: 720,
-    coverHeight: 1280,
-    reelUrl: 'https://www.facebook.com/reel/1137207755955189/',
-  },
-  {
-    reelId: '3261278167408762',
-    title: 'Ăn uống vô tội vạ và tổn thương mạch máu',
-    coverSrc: reelCover3261278167408762,
-    coverAlt: 'Bìa Reel Inspire Talk – Điều cơ thể chưa nói: 2 Ăn uống vô tội vạ',
-    coverWidth: 720,
-    coverHeight: 1280,
-    reelUrl: 'https://www.facebook.com/reel/3261278167408762/',
-  },
-  {
-    reelId: '1636549751555465',
-    title: 'Mì gói và đột quỵ có liên quan không?',
-    coverSrc: reelCover1636549751555465,
-    coverAlt: 'Bìa Reel Inspire Talk – Điều cơ thể chưa nói: Bạn có thường xuyên ăn mì gói hay không?',
-    coverWidth: 720,
-    coverHeight: 1280,
-    reelUrl: 'https://www.facebook.com/reel/1636549751555465/',
-  },
-  {
-    reelId: '1484135439826750',
-    title: '3 sự thật về mạch máu mà rất ít ai biết',
-    coverSrc: reelCover1484135439826750,
-    coverAlt: 'Bìa Reel Inspire Talk – Điều cơ thể chưa nói: 3 sự thật về mạch máu mà rất ít ai biết',
-    coverWidth: 720,
-    coverHeight: 1280,
-    reelUrl: 'https://www.facebook.com/reel/1484135439826750/',
-  },
-  {
-    reelId: '1443435894073407',
-    title: 'Cà phê tốt hay không tốt?',
-    coverSrc: reelCover1443435894073407,
-    coverAlt:
-      'Bìa Reel Inspire Talk – Điều cơ thể chưa nói: Hàng triệu người uống cafe mỗi ngày nhưng bỏ qua điều này',
-    coverWidth: 720,
-    coverHeight: 1280,
-    reelUrl: 'https://www.facebook.com/reel/1443435894073407/',
-  },
-  {
-    reelId: '1180628557746539',
-    title: 'Top 5 nguy cơ sức khỏe đến từ mỡ nội tạng',
-    coverSrc: reelCover1180628557746539,
-    coverAlt:
-      'Bìa Reel Inspire Tips – Điều cơ thể chưa nói: Top 5 nguy cơ sức khoẻ đáng sợ đến từ mỡ nội tạng',
-    coverWidth: 1080,
-    coverHeight: 1920,
-    reelUrl: 'https://www.facebook.com/reel/1180628557746539/',
-  },
-]
+export const VIDEO_SERIES: VideoSeriesItem[] = INSPIRE_WELLNESS_EPISODES
 
 export const ON_STAGE_SECTION = {
   id: 'on-stage',
-  heading: 'Sức khỏe và Khởi nghiệp',
+  heading: 'Dinh dưỡng và Khởi nghiệp',
   subtitle:
-    'Những khoảnh khắc Khánh Ly hướng dẫn tập luyện, chia sẻ tại sự kiện và đồng hành cùng người khởi nghiệp.',
+    'Khánh Ly chia sẻ về dinh dưỡng hằng ngày và đồng hành cùng người xây dựng mô hình kinh doanh trong lĩnh vực sức khỏe chủ động.',
   moreLabel: 'Xem thêm trên Facebook',
   moreFacebookUrl: null as string | null,
   placeholderBadge: 'Ảnh minh họa',
@@ -299,7 +212,7 @@ export const ON_STAGE_SECTION = {
 } as const
 
 /**
- * Danh sách 4 thẻ trong mục “Sức khỏe và Khởi nghiệp”.
+ * Danh sách 4 thẻ trong mục “Dinh dưỡng và Khởi nghiệp”.
  * Cách gắn file MP4 cho từng thẻ:
  * - Cách 1 (khuyên dùng với Vite / GitHub Pages): đặt file vào `src/assets/videos/chia-se-01.mp4`,
  *   thêm `import stageVideo01 from '../assets/videos/chia-se-01.mp4'` ở đầu file và gán `videoSrc: stageVideo01`.
@@ -308,7 +221,7 @@ export const ON_STAGE_SECTION = {
 export const ON_STAGE_CLIPS: StageClipItem[] = [
   {
     id: 'stage-01',
-    title: 'Giữ nhịp sức khỏe khi điều hành dự án mới',
+    title: 'Xây dựng bữa ăn cân bằng',
     eventName: null,
     coverSrc: stagePlaceholder01,
     coverAlt: 'Ảnh minh họa chia sẻ trên sân khấu',
@@ -321,7 +234,7 @@ export const ON_STAGE_CLIPS: StageClipItem[] = [
   },
   {
     id: 'stage-02',
-    title: 'Bắt đầu nhỏ nhưng bền vững cho người khởi nghiệp',
+    title: 'Ăn uống lành mạnh khi bận rộn',
     eventName: null,
     coverSrc: stagePlaceholder02,
     coverAlt: 'Ảnh minh họa thảo luận tại buổi workshop',
@@ -334,7 +247,7 @@ export const ON_STAGE_CLIPS: StageClipItem[] = [
   },
   {
     id: 'stage-03',
-    title: 'Lắng nghe tín hiệu cơ thể giữa lịch làm việc dày',
+    title: 'Tìm khách hàng đầu tiên cho mô hình chăm sóc sức khỏe',
     eventName: null,
     coverSrc: stagePlaceholder03,
     coverAlt: 'Ảnh minh họa trò chuyện chuyên đề',
@@ -347,7 +260,7 @@ export const ON_STAGE_CLIPS: StageClipItem[] = [
   },
   {
     id: 'stage-04',
-    title: 'Thói quen phục hồi năng lượng sau giờ làm việc',
+    title: 'Vận hành dịch vụ chăm sóc sức khỏe khi mới khởi nghiệp',
     eventName: null,
     coverSrc: stagePlaceholder04,
     coverAlt: 'Ảnh minh họa chia sẻ tại lớp học',
@@ -364,32 +277,56 @@ export const TALKS_SECTION = {
   id: 'talks',
   heading: 'Talks & Workshop',
   subtitle: '',
-  takeawaysHeading: 'Người tham dự nhận được gì',
+  takeawaysHeading: 'Nội dung chia sẻ',
   ctaLabel: 'Trao đổi về chủ đề này',
   placeholderBadge: 'Ảnh minh họa',
+  placeholderFrameTag: 'Khung ảnh tạm',
+  placeholderFrameDefaultNote: 'Ảnh chia sẻ thực tế sẽ được cập nhật',
   pendingHint: 'Chờ kết nối với phần Liên hệ',
 } as const
 
 /**
- * Danh sách 3 thẻ trong mục “Talks & Workshop” theo đúng thứ tự trên Trang chủ:
- * 1. Cố vấn khởi nghiệp (ảnh dọc chị Ly cầm micro trước phông hoa)
- * 2. Chăm sóc sức khỏe chủ động (ảnh dọc chị Ly hướng dẫn tập với tạ hồng)
- * 3. Workshop tập luyện FitX (ảnh tập thể ngang rộng nguyên tỷ lệ gốc bên dưới nội dung thẻ)
+ * Danh sách 2 thẻ hiển thị trong mục “Talks & Workshop” trên Trang chủ:
+ * 1. Dinh dưỡng & chăm sóc sức khỏe (khung ảnh tạm trong preview, chờ ảnh thật chị Ly chia sẻ/tư vấn dinh dưỡng)
+ * 2. Cố vấn khởi nghiệp trong lĩnh vực sức khỏe chủ động (ảnh dọc chị Ly cầm micro chia sẻ trước phông hoa)
  */
 export const TALKS_TOPICS: TalkTopicItem[] = [
   {
+    id: 'nutrition-health',
+    contactTopic: 'cham-soc-tu-van-suc-khoe',
+    title: 'Dinh dưỡng & chăm sóc sức khỏe',
+    description:
+      'Khánh Ly chia sẻ cách xây dựng thói quen ăn uống phù hợp với lịch sinh hoạt và mục tiêu chăm sóc sức khỏe.',
+    takeawaysHeading: 'Nội dung chia sẻ',
+    takeaways: [
+      'Lên thực đơn cân bằng cho những ngày bận rộn.',
+      'Chọn thực phẩm và chuẩn bị bữa ăn dễ áp dụng.',
+      'Xây dựng thói quen ăn uống có thể duy trì lâu dài.',
+    ],
+    ctaLabel: 'Trao đổi về dinh dưỡng',
+    mediaLayout: 'portrait',
+    imageSrc: null,
+    placeholderFrameNote: 'Ảnh Khánh Ly chia sẻ và tư vấn dinh dưỡng sẽ được cập nhật',
+    isPlaceholderImage: false,
+    programName: null,
+    duration: null,
+    fee: null,
+    confirmedOutcome: null,
+    contactHref: buildContactHref('cham-soc-tu-van-suc-khoe'),
+  },
+  {
     id: 'startup-mentoring',
     contactTopic: 'co-van-khoi-nghiep',
-    title: 'Cố vấn khởi nghiệp',
+    title: 'Cố vấn khởi nghiệp trong lĩnh vực sức khỏe chủ động',
     description:
-      'Đồng hành cùng người sáng lập và đội ngũ nhỏ làm rõ ưu tiên, gỡ vướng vận hành và giữ sự tỉnh táo trong giai đoạn xây nền tảng.',
-    takeawaysHeading: 'Người tham dự nhận được gì',
+      'Khánh Ly đồng hành cùng người sáng lập đang xây dựng mô hình kinh doanh trong lĩnh vực sức khỏe chủ động, từ xác định khách hàng đến thử nghiệm dịch vụ và tổ chức vận hành.',
+    takeawaysHeading: 'Nội dung cố vấn',
     takeaways: [
-      'Cách xác định trọng tâm khi nguồn lực và thời gian còn giới hạn',
-      'Khung đặt câu hỏi để tự rà soát mô hình kinh doanh và nhịp phối hợp',
-      'Thảo luận trực tiếp từ các tình huống thực tế của người tham dự',
+      'Xác định nhóm khách hàng và nhu cầu cần giải quyết.',
+      'Rà soát mô hình kinh doanh và chọn dịch vụ đầu tiên để thử nghiệm.',
+      'Xác định ưu tiên vận hành khi đội ngũ và nguồn lực còn nhỏ.',
     ],
-    ctaLabel: 'Trao đổi về chủ đề này',
+    ctaLabel: 'Trao đổi về cố vấn',
     mediaLayout: 'portrait',
     imageSrc: talksCoVanKhoiNghiep,
     imageAlt: 'Nguyễn Khánh Ly cầm micro chia sẻ trước phông hoa tại sự kiện',
@@ -403,32 +340,12 @@ export const TALKS_TOPICS: TalkTopicItem[] = [
     confirmedOutcome: null,
     contactHref: buildContactHref('co-van-khoi-nghiep'),
   },
-  {
-    id: 'proactive-health',
-    contactTopic: 'moi-chia-se-workshop',
-    title: 'Chăm sóc sức khỏe chủ động',
-    description:
-      'Trong các buổi chia sẻ và workshop, Khánh Ly mang kinh nghiệm huấn luyện tại FitX vào việc giúp người tham dự xây dựng thói quen vận động, ăn uống và nghỉ ngơi phù hợp với lịch sinh hoạt.',
-    takeawaysHeading: 'Người tham dự nhận được gì',
-    takeaways: [
-      'Chọn hình thức vận động phù hợp',
-      'Sắp xếp tập luyện và nghỉ ngơi trong tuần bận rộn',
-      'Lập kế hoạch đơn giản để duy trì thói quen',
-    ],
-    ctaLabel: 'Mời chia sẻ về sức khỏe',
-    mediaLayout: 'portrait',
-    imageSrc: talksChamSocSucKhoe,
-    imageAlt: 'Nguyễn Khánh Ly cầm đôi tạ hồng hướng dẫn học viên tập luyện tại phòng tập',
-    imageWidth: 683,
-    imageHeight: 1024,
-    imageObjectPosition: '50% 42%',
-    isPlaceholderImage: false,
-    programName: null,
-    duration: null,
-    fee: null,
-    confirmedOutcome: null,
-    contactHref: buildContactHref('moi-chia-se-workshop'),
-  },
+]
+
+/**
+ * Dữ liệu & tư liệu ảnh tập luyện / Workshop FitX được bảo lưu để sử dụng cho tab FitX sau.
+ */
+export const FITX_RESERVED_TOPICS: TalkTopicItem[] = [
   {
     id: 'fitx-workshop',
     contactTopic: 'moi-chia-se-workshop',
@@ -447,6 +364,32 @@ export const TALKS_TOPICS: TalkTopicItem[] = [
     imageAlt: 'Đông đảo học viên và đội ngũ huấn luyện chụp ảnh tập thể tại buổi Workshop tập luyện FitX',
     imageWidth: 1024,
     imageHeight: 683,
+    isPlaceholderImage: false,
+    programName: null,
+    duration: null,
+    fee: null,
+    confirmedOutcome: null,
+    contactHref: buildContactHref('moi-chia-se-workshop'),
+  },
+  {
+    id: 'fitx-training-session',
+    contactTopic: 'moi-chia-se-workshop',
+    title: 'Hướng dẫn tập luyện tại FitX',
+    description:
+      'Trong các buổi chia sẻ và workshop, Khánh Ly mang kinh nghiệm huấn luyện tại FitX vào việc giúp người tham dự xây dựng thói quen vận động, ăn uống và nghỉ ngơi phù hợp với lịch sinh hoạt.',
+    takeawaysHeading: 'Người tham dự nhận được gì',
+    takeaways: [
+      'Chọn hình thức vận động phù hợp',
+      'Sắp xếp tập luyện và nghỉ ngơi trong tuần bận rộn',
+      'Lập kế hoạch đơn giản để duy trì thói quen',
+    ],
+    ctaLabel: 'Mời chia sẻ về sức khỏe',
+    mediaLayout: 'portrait',
+    imageSrc: talksChamSocSucKhoe,
+    imageAlt: 'Nguyễn Khánh Ly cầm đôi tạ hồng hướng dẫn học viên tập luyện tại phòng tập',
+    imageWidth: 683,
+    imageHeight: 1024,
+    imageObjectPosition: '50% 42%',
     isPlaceholderImage: false,
     programName: null,
     duration: null,

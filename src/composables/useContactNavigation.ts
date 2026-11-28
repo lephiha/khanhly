@@ -37,6 +37,10 @@ export function buildContactHref(topic?: ContactTopicId): string {
   return `#${CONTACT_SECTION_COPY.id}?topic=${topic}`
 }
 
+export function buildHomeContactHref(topic?: ContactTopicId): string {
+  return `/${buildContactHref(topic)}`
+}
+
 export function syncContactIntentFromLocation(): void {
   if (typeof window === 'undefined') return
   const parsed = parseContactHash(window.location.hash)

@@ -36,6 +36,7 @@
   --color-stage-meta: oklch(88% 0.01 15);
   --color-stage-badge-bg: oklch(98% 0.006 15 / 0.9);
   --color-modal-backdrop: oklch(16% 0.012 350 / 0.62);
+  --color-video-stage-bg: #0b090c;
   --color-modal-close-bg: oklch(18% 0.012 350 / 0.78);
   --color-modal-close-hover: oklch(13% 0.012 350 / 0.92);
   --color-modal-close-border: oklch(98% 0.006 15 / 0.24);

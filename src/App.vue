@@ -1,31 +1,24 @@
 <script setup lang="ts">
-import { ref } from 'vue'
 import SiteHeader from './components/SiteHeader.vue'
-import HeroSection from './components/HeroSection.vue'
-import VideoSeriesSection from './components/VideoSeriesSection.vue'
-import OnStageSection from './components/OnStageSection.vue'
-import TalksSection from './components/TalksSection.vue'
-import FeaturedEventsSection from './components/FeaturedEventsSection.vue'
-import MediaNetworkSection from './components/MediaNetworkSection.vue'
-import ContactSection from './components/ContactSection.vue'
 import SiteFooter from './components/SiteFooter.vue'
-import { useHeroVideoHandoff } from './composables/useHeroVideoHandoff'
+import HomeView from './components/HomeView.vue'
+import InspireWellnessLibraryView from './components/InspireWellnessLibraryView.vue'
+import InspireWellnessDetailView from './components/InspireWellnessDetailView.vue'
+import { useAppRouter } from './composables/useAppRouter'
 
-const mainRef = ref<HTMLElement | null>(null)
-useHeroVideoHandoff(mainRef)
+const { currentRoute } = useAppRouter()
 </script>
 
 <template>
-  <a class="skip-link" href="#hero">Chuyển tới nội dung chính</a>
+  <a class="skip-link" href="#main-content">Chuyển tới nội dung chính</a>
   <SiteHeader />
-  <main ref="mainRef">
-    <HeroSection />
-    <VideoSeriesSection />
-    <OnStageSection />
-    <TalksSection />
-    <FeaturedEventsSection />
-    <MediaNetworkSection />
-    <ContactSection />
-  </main>
+
+  <InspireWellnessLibraryView v-if="currentRoute.name === 'inspire-wellness-library'" />
+  <InspireWellnessDetailView
+    v-else-if="currentRoute.name === 'inspire-wellness-detail'"
+    :slug="currentRoute.slug"
+  />
+  <HomeView v-else />
+
   <SiteFooter />
 </template>

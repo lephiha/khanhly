@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ArrowUp } from 'lucide-vue-next'
 import { FOOTER_CONTENT } from '../config/siteContent'
+import { scrollCurrentPageToTop } from '../composables/useAppRouter'
 </script>
 
 <template>
@@ -12,7 +13,11 @@ import { FOOTER_CONTENT } from '../config/siteContent'
         <span>{{ FOOTER_CONTENT.summary }}</span>
       </p>
 
-      <a class="site-footer__top-link" :href="FOOTER_CONTENT.backToTopHref">
+      <a
+        class="site-footer__top-link"
+        href="#main-content"
+        @click="scrollCurrentPageToTop($event)"
+      >
         <span>{{ FOOTER_CONTENT.backToTopLabel }}</span>
         <ArrowUp :size="14" :stroke-width="2" aria-hidden="true" />
       </a>
